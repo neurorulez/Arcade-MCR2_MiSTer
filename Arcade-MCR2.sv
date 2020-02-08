@@ -82,12 +82,18 @@ module emu
 	// 1 - D-/TX
 	// 2..6 - USR2..USR6
 	// Set USER_OUT to 1 to read from USER_IN.
+    output	      USER_MODE,
 	input   [6:0] USER_IN,
 	output  [6:0] USER_OUT
 );
 
 assign VGA_F1    = 0;
-assign USER_OUT  = '1;
+
+wire   JOY_CLK, JOY_LOAD;
+wire   JOY_DATA  = USER_IN[5];
+assign USER_OUT  = |status[31:30] ? {5'b11111,JOY_CLK,JOY_LOAD} : '1;
+assign USER_MODE = |status[31:30] ;
+
 assign LED_USER  = rom_download;
 assign LED_DISK  = 0;
 assign LED_POWER = 0;
@@ -101,6 +107,7 @@ localparam CONF_STR = {
 	"H0O1,Aspect Ratio,Original,Wide;",
 	"H1H0O2,Orientation,Vert,Horz;",
 	"O35,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
+    "OUV,Serial SNAC DB15,Off,1 Player,2 Players;",	
 	"-;",
 	"h2O6,Rotate,Buttons,Spinner;",
 	"h2-;",
@@ -136,8 +143,22 @@ wire        direct_video;
 wire [10:0] ps2_key;
 
 wire [15:0] joy1a, joy2a;
-wire [15:0] joy1, joy2;
+wire [15:0] joy1_USB, joy2_USB;
+wire [15:0] joy1 = |status[31:30] ? {3'b000,joydb15_1[9],1'b0,joydb15_1[8],joydb15_1[11:10],joydb15_1[7:0]} : joy1_USB;
+wire [15:0] joy2 =  status[31]    ? {3'b000,joydb15_2[9],joydb15_2[8],1'b0,joydb15_2[11:10],joydb15_2[7:0]} : status[30] ? joy1_USB : joy2_USB;
 wire [15:0] joy = joy1 | joy2;
+
+reg [15:0] joydb15_1,joydb15_2;
+joy_db15 joy_db15
+(
+  .clk       ( clk_sys   ), //48MHz
+  .JOY_CLK   ( JOY_CLK   ),
+  .JOY_DATA  ( JOY_DATA  ),
+  .JOY_LOAD  ( JOY_LOAD  ),
+  .joystick1 ( joydb15_1 ),
+  .joystick2 ( joydb15_2 )	  
+);
+
 
 wire [21:0] gamma_bus;
 
@@ -167,8 +188,8 @@ hps_io #(.STRLEN($size(CONF_STR)>>3)) hps_io
 	.ioctl_dout(ioctl_dout),
 	.ioctl_index(ioctl_index),
 
-	.joystick_0(joy1),
-	.joystick_1(joy2),
+	.joystick_0(joy1_USB),
+	.joystick_1(joy2_USB),
 
 	.joystick_analog_0(joy1a),
 	.joystick_analog_1(joy2a),

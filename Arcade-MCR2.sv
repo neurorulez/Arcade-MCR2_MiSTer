@@ -142,11 +142,11 @@ wire        direct_video;
 
 wire [10:0] ps2_key;
 
-wire [15:0] joy1a, joy2a;
-wire [15:0] joy1_USB, joy2_USB;
-wire [15:0] joy1 = |status[31:30] ? {3'b000,joydb15_1[9],1'b0,joydb15_1[8],joydb15_1[11:10],joydb15_1[7:0]} : joy1_USB;
-wire [15:0] joy2 =  status[31]    ? {3'b000,joydb15_2[9],joydb15_2[8],1'b0,joydb15_2[11:10],joydb15_2[7:0]} : status[30] ? joy1_USB : joy2_USB;
-wire [15:0] joy = joy1 | joy2;
+wire [31:0] joy1, joy2;
+wire [31:0] joy1_USB, joy2_USB;
+wire [31:0] joy1 = |status[31:30] ? {3'b000,joydb15_1[9],1'b0,joydb15_1[8],joydb15_1[11:10],joydb15_1[7:0]} : joy1_USB;
+wire [31:0] joy2 =  status[31]    ? {3'b000,joydb15_2[9],joydb15_2[8],1'b0,joydb15_2[11:10],joydb15_2[7:0]} : status[30] ? joy1_USB : joy2_USB;
+wire [31:0] joy = joy1 | joy2;
 
 reg [15:0] joydb15_1,joydb15_2;
 joy_db15 joy_db15
@@ -190,9 +190,6 @@ hps_io #(.STRLEN($size(CONF_STR)>>3)) hps_io
 
 	.joystick_0(joy1_USB),
 	.joystick_1(joy2_USB),
-
-	.joystick_analog_0(joy1a),
-	.joystick_analog_1(joy2a),
 
 	.ps2_key(ps2_key)
 );
@@ -307,6 +304,8 @@ wire m_fire1c  = btn_fireC  | joy1[6];
 wire m_fire1d  = btn_fireD  | joy1[7];
 wire m_rcw1    =              joy1[8];
 wire m_rccw1   =              joy1[9];
+wire m_spccw1  =              joy1[30];
+wire m_spcw1   =              joy1[31];
 
 wire m_right2  = btn_right2 | joy2[0];
 wire m_left2   = btn_left2  | joy2[1];
@@ -318,6 +317,8 @@ wire m_fire2c  = btn_fire2C | joy2[6];
 wire m_fire2d  = btn_fire2D | joy2[7];
 wire m_rcw2    =              joy2[8];
 wire m_rccw2   =              joy2[9];
+wire m_spccw2  =              joy2[30];
+wire m_spcw2   =              joy2[31];
 
 wire m_right   = m_right1 | m_right2;
 wire m_left    = m_left1  | m_left2; 
@@ -329,6 +330,8 @@ wire m_fire_c  = m_fire1c | m_fire2c;
 wire m_fire_d  = m_fire1d | m_fire2d;
 wire m_rcw     = m_rcw1   | m_rcw2;
 wire m_rccw    = m_rccw1  | m_rccw2;
+wire m_spccw   = m_spccw1 | m_spccw2;
+wire m_spcw    = m_spcw1  | m_spcw2;
 
 reg  [1:0] orientation; //left/right / portrait/landscape
 reg  [7:0] input_0;
@@ -336,9 +339,6 @@ reg  [7:0] input_1;
 reg  [7:0] input_2;
 reg  [7:0] input_3;
 reg  [7:0] input_4;
-
-wire [7:0] ax = joy2a[7:0]  ? joy2a[7:0]  : joy1a[7:0];
-wire [7:0] ay = joy2a[15:8] ? joy2a[15:8] : joy1a[15:8];
 
 // Game specific sound board/DIP/input settings
 always @(*) begin
@@ -379,8 +379,8 @@ always @(*) begin
 		orientation = 2'b01;
 		input_0 = ~{ service, 1'b0, m_tilt, m_fire_a, m_start2, m_start1, 1'b0, m_coin1 };
 		input_1 = ~{ m_fire_b, spin_krookz[7], 3'b111, spin_krookz[6:4] };
-		input_2 = 8'd100 + (ax ? {ax[7],ax[7:1]} : m_left ? -8'd63 : m_right ? 8'd63 : 8'd0);
-		input_4 = 8'd100 + (ay ? {ay[7],ay[7:1]} : m_up   ? -8'd63 : m_down  ? 8'd63 : 8'd0);
+		input_2 = 8'd100 + (m_left ? -8'd63 : m_right ? 8'd63 : 8'd0);
+		input_4 = 8'd100 + (m_up   ? -8'd63 : m_down  ? 8'd63 : 8'd0);
 	end
 	else if (mod_domino) begin
 		orientation = 2'b01;
@@ -498,10 +498,10 @@ spinner #(55) spinner_tr
 (
 	.clk(clk_sys),
 	.reset(reset),
-	.minus(m_rccw),
-	.plus(m_rcw),
+	.minus(m_rccw | m_spccw),
+	.plus(m_rcw | m_spcw),
 	.strobe(vs),
-	.use_spinner(status[6]),
+	.use_spinner(status[6] | m_spccw | m_spcw),
 	.spin_angle(spin_tron)
 );
 
@@ -511,10 +511,10 @@ spinner #(55) spinner_kr
 (
 	.clk(clk_sys),
 	.reset(reset),
-	.minus(m_rccw),
-	.plus(m_rcw),
+	.minus(m_rccw | m_spccw),
+	.plus(m_rcw | m_spcw),
 	.strobe(vs),
-	.use_spinner(status[6]),
+	.use_spinner(status[6] | m_spccw | m_spcw),
 	.spin_angle(spin_krookz)
 );
 
@@ -524,10 +524,10 @@ spinner #(55) spinner1
 (
 	.clk(clk_sys),
 	.reset(reset),
-	.minus(m_rccw1 | m_left1),
-	.plus(m_rcw1 | m_right1),
+	.minus(m_rccw1 | m_left1 | m_spccw1),
+	.plus(m_rcw1 | m_right1 | m_spcw1),
 	.strobe(vs),
-	.use_spinner(status[6]),
+	.use_spinner(status[6] | m_spccw1 | m_spcw1),
 	.spin_angle(spin_angle1)
 );
 
@@ -536,10 +536,10 @@ spinner #(55) spinner2
 (
 	.clk(clk_sys),
 	.reset(reset),
-	.minus(m_rccw2 | m_left2),
-	.plus(m_rcw2 | m_right2),
+	.minus(m_rccw2 | m_left2 | m_spccw2),
+	.plus(m_rcw2 | m_right2 | m_spcw2),
 	.strobe(vs),
-	.use_spinner(status[7]),
+	.use_spinner(status[7] | m_spccw2 | m_spcw2),
 	.spin_angle(spin_angle2)
 );
 

@@ -142,7 +142,6 @@ wire        direct_video;
 
 wire [10:0] ps2_key;
 
-wire [31:0] joy1, joy2;
 wire [31:0] joy1_USB, joy2_USB;
 wire [31:0] joy1 = |status[31:30] ? {3'b000,joydb15_1[9],1'b0,joydb15_1[8],joydb15_1[11:10],joydb15_1[7:0]} : joy1_USB;
 wire [31:0] joy2 =  status[31]    ? {3'b000,joydb15_2[9],joydb15_2[8],1'b0,joydb15_2[11:10],joydb15_2[7:0]} : status[30] ? joy1_USB : joy2_USB;
